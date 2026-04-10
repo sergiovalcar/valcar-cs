@@ -331,9 +331,15 @@ export default function ClientesPage() {
                   {editMode?(<>
                     <EditField label="Nome Completo" value={ef.nome} onChange={v=>setEf('nome',v)}/>
                     <EditField label="CPF" value={ef.cpf} onChange={v=>setEf('cpf',v)}/>
-                    <EditField label="Telefone Principal" value={ef.telefone} onChange={v=>setEf('telefone',v)}/>
-                    <EditField label="Telefone Adicional" value={ef.telefone_adicional} onChange={v=>setEf('telefone_adicional',v)}/>
+                    <div><div className="text-[10px] uppercase tracking-[1.2px] text-[var(--text-muted)] font-semibold mb-1">Telefone Principal</div><input value={formatPhone(ef.telefone)} onChange={e=>setEf('telefone',phoneRaw(e.target.value))} placeholder="(92) 9 0000-0000" className="w-full bg-[var(--bg-card)] border border-[var(--accent)] rounded text-sm px-2 py-1.5 text-[var(--text-primary)] outline-none"/></div>
+                    <div><div className="text-[10px] uppercase tracking-[1.2px] text-[var(--text-muted)] font-semibold mb-1">Telefone Adicional</div><input value={formatPhone(ef.telefone_adicional)} onChange={e=>setEf('telefone_adicional',phoneRaw(e.target.value))} placeholder="(92) 0000-0000" className="w-full bg-[var(--bg-card)] border border-[var(--accent)] rounded text-sm px-2 py-1.5 text-[var(--text-primary)] outline-none"/></div>
                     <EditField label="E-mail" value={ef.email} onChange={v=>setEf('email',v)}/>
+                    <div />
+                    <EditField label="Logradouro" value={ef.logradouro} onChange={v=>setEf('logradouro',v)}/>
+                    <EditField label="Número" value={ef.numero_endereco} onChange={v=>setEf('numero_endereco',v)}/>
+                    <EditField label="Bairro" value={ef.bairro} onChange={v=>setEf('bairro',v)}/>
+                    <EditField label="Cidade / Estado" value={ef.cidade_estado} onChange={v=>setEf('cidade_estado',v)}/>
+                    <div><div className="text-[10px] uppercase tracking-[1.2px] text-[var(--text-muted)] font-semibold mb-1">CEP</div><input value={formatCEP(ef.cep||'')} onChange={e=>setEf('cep',e.target.value.replace(/\D/g,'').slice(0,8))} placeholder="00000-000" className="w-full bg-[var(--bg-card)] border border-[var(--accent)] rounded text-sm px-2 py-1.5 text-[var(--text-primary)] outline-none"/></div>
                   </>):(<>
                     <DetailField label="Nome Completo" value={c.nome}/>
                     <DetailField label="CPF" value={c.cpf} mono/>
