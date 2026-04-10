@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 
 const STATUS_MAP = {
@@ -15,43 +15,42 @@ const STATUS_MAP = {
 const BENS = ['automovel', 'imovel', 'moto', 'caminhao', 'servicos'];
 const BEM_LABELS = { automovel: 'Automóvel', imovel: 'Imóvel', moto: 'Moto', caminhao: 'Caminhão', servicos: 'Serviços' };
 
+// ===== HELPERS =====
+function formatPhone(value) {
+  const d = (value || '').replace(/\D/g, '').slice(0, 11);
+  if (d.length === 0) return '';
+  if (d.length <= 2) return '(' + d;
+  if (d.length <= 3) return '(' + d.slice(0,2) + ') ' + d.slice(2);
+  if (d.length <= 7) return '(' + d.slice(0,2) + ') ' + d.slice(2,3) + ' ' + d.slice(3);
+  return '(' + d.slice(0,2) + ') ' + d.slice(2,3) + ' ' + d.slice(3,7) + '-' + d.slice(7);
+}
+function phoneRaw(value) { return (value || '').replace(/\D/g, ''); }
+function formatCEP(value) {
+  const d = (value || '').replace(/\D/g, '').slice(0, 8);
+  if (d.length <= 5) return d;
+  return d.slice(0,5) + '-' + d.slice(5);
+}
+function buildEndereco(c) {
+  const parts = [c.logradouro, c.numero_endereco ? 'Nº ' + c.numero_endereco : '', c.bairro, c.cidade_estado, c.cep ? 'CEP ' + c.cep : ''].filter(Boolean);
+  return parts.length > 0 ? parts.join(', ') : c.endereco || '—';
+}
+function noNeg(e) { if (e.target.value < 0) e.target.value = 0; }
+
 function SectionTitle({ children }) {
-  return (
-    <div className="flex items-center gap-3 mb-4 mt-2">
-      <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)]">{children}</h3>
-      <div className="flex-1 h-px bg-[var(--border)]" />
-    </div>
-  );
+  return (<div className="flex items-center gap-3 mb-4 mt-2"><h3 className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)]">{children}</h3><div className="flex-1 h-px bg-[var(--border)]" /></div>);
 }
-
 function DetailField({ label, value, highlight, mono }) {
-  return (
-    <div>
-      <div className="text-[10px] uppercase tracking-[1.2px] text-[var(--text-muted)] font-semibold mb-1">{label}</div>
-      <div className={`text-[14px] font-medium ${highlight ? 'text-[var(--accent-light)] font-bold' : ''} ${mono ? 'font-mono text-[13px]' : ''}`}>{value || '—'}</div>
-    </div>
-  );
+  return (<div><div className="text-[10px] uppercase tracking-[1.2px] text-[var(--text-muted)] font-semibold mb-1">{label}</div><div className={`text-[14px] font-medium ${highlight ? 'text-[var(--accent-light)] font-bold' : ''} ${mono ? 'font-mono text-[13px]' : ''}`}>{value || '—'}</div></div>);
 }
-
 function EditField({ label, value, onChange, type, options }) {
-  return (
-    <div>
-      <div className="text-[10px] uppercase tracking-[1.2px] text-[var(--text-muted)] font-semibold mb-1">{label}</div>
-      {options ? (
-        <select value={value || ''} onChange={e => onChange(e.target.value)} className="w-full bg-[var(--bg-card)] border border-[var(--accent)] rounded text-sm px-2 py-1.5 text-[var(--text-primary)] outline-none">
-          {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-      ) : type === 'checkbox' ? (
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" checked={!!value} onChange={e => onChange(e.target.checked)} className="w-4 h-4 accent-[var(--success)]" />
-          <span className="text-sm">{value ? 'Sim' : 'Não'}</span>
-        </label>
-      ) : (
-        <input type={type || 'text'} value={value || ''} onChange={e => onChange(e.target.value)}
-          className="w-full bg-[var(--bg-card)] border border-[var(--accent)] rounded text-sm px-2 py-1.5 text-[var(--text-primary)] outline-none focus:border-[var(--accent-light)]" />
-      )}
-    </div>
-  );
+  return (<div><div className="text-[10px] uppercase tracking-[1.2px] text-[var(--text-muted)] font-semibold mb-1">{label}</div>
+    {options ? (<select value={value||''} onChange={e=>onChange(e.target.value)} className="w-full bg-[var(--bg-card)] border border-[var(--accent)] rounded text-sm px-2 py-1.5 text-[var(--text-primary)] outline-none">{options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select>)
+    : type === 'checkbox' ? (<label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={!!value} onChange={e=>onChange(e.target.checked)} className="w-4 h-4 accent-[var(--success)]"/><span className="text-sm">{value?'Sim':'Não'}</span></label>)
+    : (<input type={type||'text'} value={value||''} onChange={e=>onChange(e.target.value)} min={type==='number'?'0':undefined} onInput={type==='number'?noNeg:undefined} className="w-full bg-[var(--bg-card)] border border-[var(--accent)] rounded text-sm px-2 py-1.5 text-[var(--text-primary)] outline-none focus:border-[var(--accent-light)]" />)}
+  </div>);
+}
+function InputField({ label, value, onChange, placeholder, required, type, className: cls }) {
+  return (<div className={cls||''}><label className="text-[11px] uppercase tracking-wider text-[var(--text-muted)] font-semibold block mb-1">{label}</label><input type={type||'text'} value={value} onChange={onChange} placeholder={placeholder} required={required} min={type==='number'?'0':undefined} onInput={type==='number'?noNeg:undefined} className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg text-sm px-3 py-2.5 text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"/></div>);
 }
 
 export default function ClientesPage() {
@@ -65,16 +64,19 @@ export default function ClientesPage() {
   const [editMode, setEditMode] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [successMsg, setSuccessMsg] = useState('');
-  const [form, setForm] = useState({
-    nome: '', cpf: '', telefone: '', email: '', endereco: '',
-    administradora_id: '', grupo: '', cota: '', credito_valor: '',
-    tipo_bem: 'automovel', segundo_vencimento_dia: '', data_venda: '',
-    numero_contrato: '',
-    doc_rg: false, doc_comprovante_endereco: false, doc_comprovante_pagamento: false,
-  });
+  const [uploadingDoc, setUploadingDoc] = useState(null);
+  const fileInputRef = useRef(null);
+  const emptyForm = {
+    nome:'', cpf:'', telefone:'', telefone_adicional:'', email:'',
+    logradouro:'', numero_endereco:'', bairro:'', cidade_estado:'', cep:'',
+    administradora_id:'', numero_contrato:'', tipo_bem:'automovel', credito_valor:'',
+    grupo:'', cota:'', prazo:'', segundo_vencimento_dia:'', data_venda:'',
+    doc_rg:false, doc_comprovante_endereco:false, doc_comprovante_pagamento:false,
+    doc_rg_url:null, doc_comprovante_endereco_url:null, doc_comprovante_pagamento_url:null,
+  };
+  const [form, setForm] = useState({...emptyForm});
 
   useEffect(() => { fetchData(); }, []);
-
   async function fetchData() {
     setLoading(true);
     const { data: cli } = await supabase.from('clientes').select('*, administradoras(nome), parcelas(*)').order('created_at', { ascending: false });
@@ -84,155 +86,203 @@ export default function ClientesPage() {
     setLoading(false);
   }
 
+  // Upload de documento
+  async function uploadDoc(file, clienteId, docType) {
+    const ext = file.name.split('.').pop();
+    const path = `${clienteId || 'novo'}/${docType}_${Date.now()}.${ext}`;
+    const { data, error } = await supabase.storage.from('documentos').upload(path, file);
+    if (error) { alert('Erro no upload: ' + error.message); return null; }
+    const { data: urlData } = supabase.storage.from('documentos').getPublicUrl(path);
+    return urlData.publicUrl;
+  }
+
+  // Quando marca checkbox de doc no formulário de cadastro
+  function handleDocCheck(docKey, urlKey) {
+    if (!form[docKey]) {
+      setUploadingDoc({ docKey, urlKey, context: 'form' });
+      fileInputRef.current?.click();
+    } else {
+      setForm(f => ({ ...f, [docKey]: false, [urlKey]: null }));
+    }
+  }
+
+  async function handleFileSelected(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) {
+      if (uploadingDoc) setUploadingDoc(null);
+      return;
+    }
+    if (uploadingDoc?.context === 'form') {
+      const url = await uploadDoc(file, 'temp', uploadingDoc.docKey);
+      if (url) {
+        setForm(f => ({ ...f, [uploadingDoc.docKey]: true, [uploadingDoc.urlKey]: url }));
+      } else {
+        alert('É obrigatório anexar o documento para marcar como recebido.');
+      }
+      setUploadingDoc(null);
+    } else if (uploadingDoc?.context === 'detail') {
+      const c = selectedClient;
+      const url = await uploadDoc(file, c.id, uploadingDoc.docKey);
+      if (url) {
+        await supabase.from('clientes').update({ [uploadingDoc.docKey]: true, [uploadingDoc.urlKey]: url }).eq('id', c.id);
+        setSelectedClient({ ...c, [uploadingDoc.docKey]: true, [uploadingDoc.urlKey]: url });
+        fetchData();
+      }
+      setUploadingDoc(null);
+    }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
-    const payload = { ...form, credito_valor: parseFloat(form.credito_valor) || 0, segundo_vencimento_dia: parseInt(form.segundo_vencimento_dia) || 15, origem_cadastro: 'manual', status: 'novo' };
+    const payload = {
+      ...form,
+      telefone: phoneRaw(form.telefone),
+      telefone_adicional: phoneRaw(form.telefone_adicional) || null,
+      credito_valor: parseFloat(form.credito_valor) || 0,
+      segundo_vencimento_dia: parseInt(form.segundo_vencimento_dia) || 15,
+      origem_cadastro: 'manual', status: 'novo',
+    };
     const { error } = await supabase.from('clientes').insert([payload]);
     if (error) { alert('Erro: ' + error.message); return; }
     setShowForm(false);
-    setForm({ nome: '', cpf: '', telefone: '', email: '', endereco: '', administradora_id: '', grupo: '', cota: '', credito_valor: '', tipo_bem: 'automovel', segundo_vencimento_dia: '', data_venda: '', numero_contrato: '', doc_rg: false, doc_comprovante_endereco: false, doc_comprovante_pagamento: false });
+    setForm({...emptyForm});
     fetchData();
   }
 
   function startEdit() {
     const c = selectedClient;
     setEditForm({
-      nome: c.nome, cpf: c.cpf, telefone: c.telefone, email: c.email, endereco: c.endereco,
-      administradora_id: c.administradora_id, numero_contrato: c.numero_contrato, tipo_bem: c.tipo_bem,
-      credito_valor: c.credito_valor, grupo: c.grupo, cota: c.cota, segundo_vencimento_dia: c.segundo_vencimento_dia,
-      doc_rg: c.doc_rg, doc_comprovante_endereco: c.doc_comprovante_endereco, doc_comprovante_pagamento: c.doc_comprovante_pagamento,
+      nome:c.nome, cpf:c.cpf, telefone:c.telefone, telefone_adicional:c.telefone_adicional, email:c.email,
+      logradouro:c.logradouro, numero_endereco:c.numero_endereco, bairro:c.bairro, cidade_estado:c.cidade_estado, cep:c.cep,
+      administradora_id:c.administradora_id, numero_contrato:c.numero_contrato, tipo_bem:c.tipo_bem,
+      credito_valor:c.credito_valor, grupo:c.grupo, cota:c.cota, prazo:c.prazo, segundo_vencimento_dia:c.segundo_vencimento_dia,
+      doc_rg:c.doc_rg, doc_comprovante_endereco:c.doc_comprovante_endereco, doc_comprovante_pagamento:c.doc_comprovante_pagamento,
     });
-    setEditMode(true);
-    setSuccessMsg('');
+    setEditMode(true); setSuccessMsg('');
   }
 
   async function handleSolicitarEdicao() {
     const c = selectedClient;
-    const camposAlterados = [];
-    const dadosAnteriores = {};
-    const dadosNovos = {};
-
+    const camposAlterados = []; const dadosAnteriores = {}; const dadosNovos = {};
     Object.keys(editForm).forEach(key => {
-      const valorAntigo = c[key];
-      const valorNovo = editForm[key];
-      if (String(valorAntigo ?? '') !== String(valorNovo ?? '')) {
-        camposAlterados.push(key);
-        dadosAnteriores[key] = valorAntigo;
-        dadosNovos[key] = valorNovo;
+      if (String(c[key]??'') !== String(editForm[key]??'')) {
+        camposAlterados.push(key); dadosAnteriores[key] = c[key]; dadosNovos[key] = editForm[key];
       }
     });
-
-    if (camposAlterados.length === 0) { alert('Nenhum campo foi alterado.'); return; }
-
+    if (camposAlterados.length === 0) { alert('Nenhum campo alterado.'); return; }
     const { error } = await supabase.from('solicitacoes_edicao').insert([{
-      cliente_id: c.id,
-      solicitante_nome: 'Operador',
-      dados_anteriores: dadosAnteriores,
-      dados_novos: dadosNovos,
-      campos_alterados: camposAlterados,
-      status: 'pendente',
+      cliente_id:c.id, solicitante_nome:'Operador', dados_anteriores:dadosAnteriores, dados_novos:dadosNovos, campos_alterados:camposAlterados, status:'pendente'
     }]);
-
     if (error) { alert('Erro: ' + error.message); return; }
     setEditMode(false);
     setSuccessMsg('Solicitação de edição enviada para aprovação da Direção.');
   }
 
-  const filteredClientes = clientes.filter(c => {
-    const matchSearch = c.nome?.toLowerCase().includes(searchTerm.toLowerCase()) || c.telefone?.includes(searchTerm) || c.grupo?.includes(searchTerm);
-    const matchStatus = filterStatus === 'todos' || c.status === filterStatus;
-    return matchSearch && matchStatus;
+  const filtered = clientes.filter(c => {
+    const s = searchTerm.toLowerCase();
+    const matchSearch = c.nome?.toLowerCase().includes(s) || c.telefone?.includes(s) || c.grupo?.includes(s);
+    return matchSearch && (filterStatus === 'todos' || c.status === filterStatus);
   });
-
   const admOptions = administradoras.map(a => ({ value: a.id, label: a.nome }));
 
   return (
     <div>
+      <input type="file" ref={fileInputRef} className="hidden" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={handleFileSelected} />
+
       <div className="flex justify-between items-start mb-7">
-        <div>
-          <h1 className="font-display text-3xl font-bold tracking-tight">Carteira de Clientes</h1>
-          <p className="text-[var(--text-muted)] text-sm mt-1">{clientes.length} clientes cadastrados</p>
-        </div>
-        <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-4 py-2 bg-[var(--accent)] text-white rounded-lg text-sm font-semibold hover:bg-[var(--accent-light)] transition-all">+ Novo Cliente</button>
+        <div><h1 className="font-display text-3xl font-bold tracking-tight">Carteira de Clientes</h1><p className="text-[var(--text-muted)] text-sm mt-1">{clientes.length} clientes cadastrados</p></div>
+        <button onClick={()=>setShowForm(true)} className="flex items-center gap-2 px-4 py-2 bg-[var(--accent)] text-white rounded-lg text-sm font-semibold hover:bg-[var(--accent-light)] transition-all">+ Novo Cliente</button>
       </div>
 
       <div className="flex gap-4 mb-5 items-center flex-wrap">
         <div className="flex items-center gap-2 bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg px-3 py-2">
           <span className="text-[var(--text-muted)]">🔍</span>
-          <input placeholder="Buscar cliente..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="bg-transparent border-none outline-none text-sm text-[var(--text-primary)] w-52" />
+          <input placeholder="Buscar cliente..." value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} className="bg-transparent border-none outline-none text-sm text-[var(--text-primary)] w-52"/>
         </div>
-        <div className="flex gap-1.5">
-          {['todos', 'novo', 'checagem', 'ativo', 'atrasado', 'cancelado', 'contemplado', 'faturado', 'credito_disponivel'].map(s => (
-            <button key={s} onClick={() => setFilterStatus(s)} className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${filterStatus === s ? 'bg-[var(--accent)] text-white border-[var(--accent)]' : 'border-[var(--border)] text-[var(--text-secondary)]'}`}>
+        <div className="flex gap-1.5 flex-wrap">
+          {['todos','novo','checagem','ativo','atrasado','cancelado','contemplado','faturado','credito_disponivel'].map(s=>(
+            <button key={s} onClick={()=>setFilterStatus(s)} className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${filterStatus===s?'bg-[var(--accent)] text-white border-[var(--accent)]':'border-[var(--border)] text-[var(--text-secondary)]'}`}>
               {s === 'todos' ? 'Todos' : STATUS_MAP[s]?.label || s}
             </button>
           ))}
         </div>
       </div>
 
+      {/* TABLE */}
       <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead><tr>
-              {['Cliente', 'Administradora', 'Bem', 'Crédito', 'Parcela', 'Status', 'Docs', 'Comissão'].map(h => (
-                <th key={h} className="text-left px-4 py-3 text-[11px] uppercase tracking-wider text-[var(--text-muted)] font-semibold border-b border-[var(--border)]">{h}</th>
-              ))}
-            </tr></thead>
-            <tbody>
-              {loading ? <tr><td colSpan={8} className="text-center py-12 text-[var(--text-muted)]">Carregando...</td></tr>
-              : filteredClientes.length === 0 ? <tr><td colSpan={8} className="text-center py-12 text-[var(--text-muted)]">{clientes.length === 0 ? '🚀 Clique em "+ Novo Cliente" para começar.' : 'Nenhum resultado.'}</td></tr>
-              : filteredClientes.map(c => {
-                const st = STATUS_MAP[c.status] || STATUS_MAP.novo;
-                const docsOk = c.doc_rg && c.doc_comprovante_endereco && c.doc_comprovante_pagamento;
-                const docsCount = [c.doc_rg, c.doc_comprovante_endereco, c.doc_comprovante_pagamento].filter(Boolean).length;
-                return (
-                  <tr key={c.id} className="hover:bg-[var(--bg-card-hover)] transition-colors cursor-pointer" onClick={() => { setSelectedClient(c); setEditMode(false); setSuccessMsg(''); }}>
-                    <td className="px-4 py-3"><div className="font-semibold text-sm">{c.nome}</div><div className="text-xs text-[var(--text-muted)]">{c.telefone}</div></td>
-                    <td className="px-4 py-3 text-sm">{c.administradoras?.nome || '—'}</td>
-                    <td className="px-4 py-3 text-sm">{BEM_LABELS[c.tipo_bem] || c.tipo_bem}</td>
-                    <td className="px-4 py-3 text-sm font-semibold">R$ {(c.credito_valor || 0).toLocaleString('pt-BR')}</td>
-                    <td className="px-4 py-3"><span className={`font-bold ${c.parcela_atual <= 3 ? 'text-[var(--danger)]' : ''}`}>P{c.parcela_atual}</span>{c.parcela_atual <= 3 && <span className="ml-1.5 text-[10px] font-bold uppercase bg-[rgba(248,113,113,0.12)] text-[var(--danger)] px-1.5 py-0.5 rounded">Crítica</span>}</td>
-                    <td className="px-4 py-3"><span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold" style={{ background: st.bg, color: st.color }}><span className="w-1.5 h-1.5 rounded-full" style={{ background: st.color }} />{st.label}</span></td>
-                    <td className="px-4 py-3 text-sm"><span className={`font-semibold ${docsOk ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>{docsCount}/3</span></td>
-                    <td className="px-4 py-3"><span className={`text-xs font-bold uppercase px-2 py-1 rounded ${docsOk ? 'bg-[rgba(52,211,153,0.12)] text-[var(--success)]' : 'bg-[rgba(248,113,113,0.12)] text-[var(--danger)]'}`}>{docsOk ? '✓ Liberada' : '⚠ Pendente'}</span></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <div className="overflow-x-auto"><table className="w-full"><thead><tr>
+          {['Cliente','Administradora','Bem','Crédito','Parcela','Status','Docs','Comissão'].map(h=>(<th key={h} className="text-left px-4 py-3 text-[11px] uppercase tracking-wider text-[var(--text-muted)] font-semibold border-b border-[var(--border)]">{h}</th>))}
+        </tr></thead><tbody>
+          {loading?<tr><td colSpan={8} className="text-center py-12 text-[var(--text-muted)]">Carregando...</td></tr>
+          :filtered.length===0?<tr><td colSpan={8} className="text-center py-12 text-[var(--text-muted)]">{clientes.length===0?'🚀 Clique em "+ Novo Cliente".':'Nenhum resultado.'}</td></tr>
+          :filtered.map(c=>{const st=STATUS_MAP[c.status]||STATUS_MAP.novo;const docsOk=c.doc_rg&&c.doc_comprovante_endereco&&c.doc_comprovante_pagamento;const docsCount=[c.doc_rg,c.doc_comprovante_endereco,c.doc_comprovante_pagamento].filter(Boolean).length;
+          return(<tr key={c.id} className="hover:bg-[var(--bg-card-hover)] transition-colors cursor-pointer" onClick={()=>{setSelectedClient(c);setEditMode(false);setSuccessMsg('');}}>
+            <td className="px-4 py-3"><div className="font-semibold text-sm">{c.nome}</div><div className="text-xs text-[var(--text-muted)]">{formatPhone(c.telefone)}</div></td>
+            <td className="px-4 py-3 text-sm">{c.administradoras?.nome||'—'}</td>
+            <td className="px-4 py-3 text-sm">{BEM_LABELS[c.tipo_bem]||c.tipo_bem}</td>
+            <td className="px-4 py-3 text-sm font-semibold">R$ {(c.credito_valor||0).toLocaleString('pt-BR')}</td>
+            <td className="px-4 py-3"><span className={`font-bold ${c.parcela_atual<=3?'text-[var(--danger)]':''}`}>P{c.parcela_atual}</span>{c.parcela_atual<=3&&<span className="ml-1.5 text-[10px] font-bold uppercase bg-[rgba(248,113,113,0.12)] text-[var(--danger)] px-1.5 py-0.5 rounded">Crítica</span>}</td>
+            <td className="px-4 py-3"><span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold" style={{background:st.bg,color:st.color}}><span className="w-1.5 h-1.5 rounded-full" style={{background:st.color}}/>{st.label}</span></td>
+            <td className="px-4 py-3 text-sm"><span className={`font-semibold ${docsOk?'text-[var(--success)]':'text-[var(--danger)]'}`}>{docsCount}/3</span></td>
+            <td className="px-4 py-3"><span className={`text-xs font-bold uppercase px-2 py-1 rounded ${docsOk?'bg-[rgba(52,211,153,0.12)] text-[var(--success)]':'bg-[rgba(248,113,113,0.12)] text-[var(--danger)]'}`}>{docsOk?'✓ Liberada':'⚠ Pendente'}</span></td>
+          </tr>);})}
+        </tbody></table></div>
       </div>
 
       {/* ============ MODAL: Novo Cliente ============ */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[200] flex items-center justify-center" onClick={() => setShowForm(false)}>
-          <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl w-[640px] max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[200] flex items-center justify-center" onClick={()=>setShowForm(false)}>
+          <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl w-[680px] max-h-[85vh] overflow-y-auto" onClick={e=>e.stopPropagation()}>
             <div className="flex justify-between items-center px-6 py-5 border-b border-[var(--border)]">
               <h2 className="font-display text-xl font-bold">Cadastro Manual de Cliente</h2>
-              <button onClick={() => setShowForm(false)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-xl">✕</button>
+              <button onClick={()=>setShowForm(false)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-xl">✕</button>
             </div>
             <form onSubmit={handleSubmit} className="p-6">
               <SectionTitle>👤 Dados do Cliente</SectionTitle>
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                {[{l:'Nome Completo',k:'nome',p:'Nome do cliente',r:true},{l:'CPF',k:'cpf',p:'000.000.000-00'},{l:'Telefone',k:'telefone',p:'(92) 90000-0000',r:true},{l:'Email',k:'email',p:'email@email.com'}].map(f=>(
-                  <div key={f.k} className="flex flex-col gap-1"><label className="text-[11px] uppercase tracking-wider text-[var(--text-muted)] font-semibold">{f.l}</label><input value={form[f.k]} onChange={e=>setForm({...form,[f.k]:e.target.value})} placeholder={f.p} required={f.r} className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg text-sm px-3 py-2.5 text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"/></div>
-                ))}
-                <div className="col-span-2 flex flex-col gap-1"><label className="text-[11px] uppercase tracking-wider text-[var(--text-muted)] font-semibold">Endereço</label><input value={form.endereco} onChange={e=>setForm({...form,endereco:e.target.value})} placeholder="Endereço completo" className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg text-sm px-3 py-2.5 text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"/></div>
+              <div className="grid grid-cols-2 gap-3 mb-2">
+                <InputField label="Nome Completo" value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})} placeholder="Nome do cliente" required />
+                <InputField label="CPF" value={form.cpf} onChange={e=>setForm({...form,cpf:e.target.value})} placeholder="000.000.000-00" />
+                <InputField label="Telefone Principal" value={form.telefone} onChange={e=>setForm({...form,telefone:formatPhone(e.target.value)})} placeholder="(92) 9 0000-0000" required />
+                <InputField label="Telefone Adicional" value={form.telefone_adicional} onChange={e=>setForm({...form,telefone_adicional:formatPhone(e.target.value)})} placeholder="(92) 9 0000-0000" />
+                <InputField label="Email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="email@email.com" cls="col-span-2" />
               </div>
+              <div className="text-[11px] uppercase tracking-wider text-[var(--text-muted)] font-semibold mt-3 mb-2">Endereço</div>
+              <div className="grid grid-cols-4 gap-3 mb-6">
+                <InputField label="Logradouro" value={form.logradouro} onChange={e=>setForm({...form,logradouro:e.target.value})} placeholder="Rua, Av..." className="col-span-2" />
+                <InputField label="Número" value={form.numero_endereco} onChange={e=>setForm({...form,numero_endereco:e.target.value})} placeholder="000" />
+                <InputField label="Bairro" value={form.bairro} onChange={e=>setForm({...form,bairro:e.target.value})} placeholder="Bairro" />
+                <InputField label="Cidade / Estado" value={form.cidade_estado} onChange={e=>setForm({...form,cidade_estado:e.target.value})} placeholder="Manaus/AM" className="col-span-2" />
+                <InputField label="CEP" value={form.cep} onChange={e=>setForm({...form,cep:formatCEP(e.target.value)})} placeholder="00000-000" className="col-span-2" />
+              </div>
+
               <SectionTitle>📋 Dados da Cota</SectionTitle>
               <div className="grid grid-cols-2 gap-3 mb-6">
-                <div className="flex flex-col gap-1"><label className="text-[11px] uppercase tracking-wider text-[var(--text-muted)] font-semibold">Administradora</label><select value={form.administradora_id} onChange={e=>setForm({...form,administradora_id:e.target.value})} required className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg text-sm px-3 py-2.5 text-[var(--text-primary)] outline-none"><option value="">Selecione...</option>{administradoras.map(a=><option key={a.id} value={a.id}>{a.nome}</option>)}</select></div>
-                {[{l:'Nº do Contrato',k:'numero_contrato',p:'000000'},{l:'Valor do Crédito',k:'credito_valor',p:'100000',t:'number'},{l:'Grupo',k:'grupo',p:'G000'},{l:'Nº da Cota',k:'cota',p:'0000'},{l:'2º Vencimento (dia)',k:'segundo_vencimento_dia',p:'1 a 28',t:'number'},{l:'Data da Venda',k:'data_venda',t:'date'}].map(f=>(
-                  <div key={f.k} className="flex flex-col gap-1"><label className="text-[11px] uppercase tracking-wider text-[var(--text-muted)] font-semibold">{f.l}</label><input type={f.t||'text'} value={form[f.k]} onChange={e=>setForm({...form,[f.k]:e.target.value})} placeholder={f.p} className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg text-sm px-3 py-2.5 text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"/></div>
-                ))}
-                <div className="flex flex-col gap-1"><label className="text-[11px] uppercase tracking-wider text-[var(--text-muted)] font-semibold">Tipo de Bem</label><select value={form.tipo_bem} onChange={e=>setForm({...form,tipo_bem:e.target.value})} className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg text-sm px-3 py-2.5 text-[var(--text-primary)] outline-none">{BENS.map(b=><option key={b} value={b}>{BEM_LABELS[b]}</option>)}</select></div>
+                <div><label className="text-[11px] uppercase tracking-wider text-[var(--text-muted)] font-semibold block mb-1">Administradora</label><select value={form.administradora_id} onChange={e=>setForm({...form,administradora_id:e.target.value})} required className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg text-sm px-3 py-2.5 text-[var(--text-primary)] outline-none"><option value="">Selecione...</option>{administradoras.map(a=><option key={a.id} value={a.id}>{a.nome}</option>)}</select></div>
+                <InputField label="Nº do Contrato" value={form.numero_contrato} onChange={e=>setForm({...form,numero_contrato:e.target.value})} placeholder="000000" />
+                <div><label className="text-[11px] uppercase tracking-wider text-[var(--text-muted)] font-semibold block mb-1">Tipo de Bem</label><select value={form.tipo_bem} onChange={e=>setForm({...form,tipo_bem:e.target.value})} className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg text-sm px-3 py-2.5 text-[var(--text-primary)] outline-none">{BENS.map(b=><option key={b} value={b}>{BEM_LABELS[b]}</option>)}</select></div>
+                <InputField label="Valor do Crédito" value={form.credito_valor} onChange={e=>setForm({...form,credito_valor:e.target.value})} placeholder="100000" type="number" />
+                <InputField label="Grupo" value={form.grupo} onChange={e=>setForm({...form,grupo:e.target.value})} placeholder="G000" />
+                <InputField label="Nº da Cota" value={form.cota} onChange={e=>setForm({...form,cota:e.target.value})} placeholder="0000" />
+                <InputField label="Prazo" value={form.prazo} onChange={e=>setForm({...form,prazo:e.target.value})} placeholder="Ex: 60 meses" />
+                <InputField label="2º Vencimento (dia)" value={form.segundo_vencimento_dia} onChange={e=>setForm({...form,segundo_vencimento_dia:e.target.value})} placeholder="1 a 28" type="number" />
+                <InputField label="Data da Venda" value={form.data_venda} onChange={e=>setForm({...form,data_venda:e.target.value})} type="date" />
               </div>
+
               <SectionTitle>📎 Documentos Obrigatórios</SectionTitle>
               <div className="grid grid-cols-3 gap-3">
-                {[{l:'🪪 RG (Cópia)',k:'doc_rg'},{l:'🏠 Comprov. Endereço',k:'doc_comprovante_endereco'},{l:'💳 Comprov. Pagamento',k:'doc_comprovante_pagamento'}].map(d=>(
-                  <label key={d.k} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${form[d.k]?'bg-[rgba(52,211,153,0.08)] border-[var(--success)]':'bg-[var(--bg-elevated)] border-[var(--border)]'}`}><input type="checkbox" checked={form[d.k]} onChange={e=>setForm({...form,[d.k]:e.target.checked})} className="w-4 h-4 accent-[var(--success)]"/><span className="text-sm">{d.l}</span></label>
+                {[{l:'🪪 RG (Cópia)',dk:'doc_rg',uk:'doc_rg_url'},{l:'🏠 Comprov. Endereço',dk:'doc_comprovante_endereco',uk:'doc_comprovante_endereco_url'},{l:'💳 Comprov. Pagamento',dk:'doc_comprovante_pagamento',uk:'doc_comprovante_pagamento_url'}].map(d=>(
+                  <div key={d.dk} className={`flex flex-col items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all ${form[d.dk]?'bg-[rgba(52,211,153,0.08)] border-[var(--success)]':'bg-[var(--bg-elevated)] border-[var(--border)]'}`} onClick={()=>handleDocCheck(d.dk,d.uk)}>
+                    <span className="text-sm font-medium">{d.l}</span>
+                    {form[d.dk] ? (
+                      <span className="text-xs text-[var(--success)] font-semibold">✓ Anexado</span>
+                    ) : (
+                      <span className="text-xs text-[var(--text-muted)]">Clique para anexar</span>
+                    )}
+                  </div>
                 ))}
               </div>
+
               <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-[var(--border)]">
                 <button type="button" onClick={()=>setShowForm(false)} className="px-4 py-2 bg-[var(--bg-elevated)] text-[var(--text-secondary)] border border-[var(--border)] rounded-lg text-sm font-semibold">Cancelar</button>
                 <button type="submit" className="px-4 py-2 bg-[var(--accent)] text-white rounded-lg text-sm font-semibold">Cadastrar Cliente</button>
@@ -243,108 +293,106 @@ export default function ClientesPage() {
       )}
 
       {/* ============ MODAL: Detalhe do Cliente ============ */}
-      {selectedClient && (() => {
+      {selectedClient && (()=>{
         const c = selectedClient;
-        const st = STATUS_MAP[c.status] || STATUS_MAP.novo;
-        const docsOk = c.doc_rg && c.doc_comprovante_endereco && c.doc_comprovante_pagamento;
-        const parcelas = (c.parcelas || []).sort((a,b) => a.numero - b.numero);
+        const st = STATUS_MAP[c.status]||STATUS_MAP.novo;
+        const docsOk = c.doc_rg&&c.doc_comprovante_endereco&&c.doc_comprovante_pagamento;
+        const parcelas = (c.parcelas||[]).sort((a,b)=>a.numero-b.numero);
         const ef = editForm;
-        const setEf = (key, val) => setEditForm(prev => ({ ...prev, [key]: val }));
+        const setEf = (k,v)=>setEditForm(p=>({...p,[k]:v}));
+        const docs = [
+          { label:'🪪 RG', dk:'doc_rg', uk:'doc_rg_url' },
+          { label:'🏠 Comprov. Endereço', dk:'doc_comprovante_endereco', uk:'doc_comprovante_endereco_url' },
+          { label:'💳 Comprov. Pagamento', dk:'doc_comprovante_pagamento', uk:'doc_comprovante_pagamento_url' },
+        ];
 
         return (
-          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[200] flex items-center justify-center" onClick={() => { setSelectedClient(null); setEditMode(false); }}>
-            <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl w-[720px] max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[200] flex items-center justify-center" onClick={()=>{setSelectedClient(null);setEditMode(false);}}>
+            <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl w-[720px] max-h-[90vh] overflow-y-auto" onClick={e=>e.stopPropagation()}>
               <div className="flex justify-between items-center px-6 py-5 border-b border-[var(--border)]">
                 <div>
                   <h2 className="font-display text-xl font-bold">{c.nome}</h2>
                   <div className="flex gap-2 mt-2 flex-wrap">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold" style={{ background: st.bg, color: st.color }}><span className="w-1.5 h-1.5 rounded-full" style={{ background: st.color }}/>{st.label}</span>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold" style={{background:st.bg,color:st.color}}><span className="w-1.5 h-1.5 rounded-full" style={{background:st.color}}/>{st.label}</span>
                     {c.parcela_atual<=3&&<span className="text-[10px] font-bold uppercase bg-[rgba(248,113,113,0.12)] text-[var(--danger)] px-2 py-1 rounded">Parcela Crítica</span>}
                     <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded ${c.origem_cadastro==='api'?'bg-[rgba(79,124,255,0.12)] text-[var(--accent)]':'bg-[rgba(251,146,60,0.1)] text-[var(--orange)]'}`}>{c.origem_cadastro==='api'?'⚡ Profinanc':'✏️ Manual'}</span>
                     <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded ${docsOk?'bg-[rgba(52,211,153,0.12)] text-[var(--success)]':'bg-[rgba(248,113,113,0.12)] text-[var(--danger)]'}`}>{docsOk?'✓ Comissão Liberada':'⚠ Comissão Pendente'}</span>
-                    {editMode && <span className="text-[10px] font-bold uppercase px-2 py-1 rounded bg-[rgba(79,124,255,0.12)] text-[var(--accent)] animate-pulse">✏️ Modo Edição</span>}
+                    {editMode&&<span className="text-[10px] font-bold uppercase px-2 py-1 rounded bg-[rgba(79,124,255,0.12)] text-[var(--accent)] animate-pulse">✏️ Modo Edição</span>}
                   </div>
                 </div>
-                <button onClick={() => { setSelectedClient(null); setEditMode(false); }} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-xl">✕</button>
+                <button onClick={()=>{setSelectedClient(null);setEditMode(false);}} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-xl">✕</button>
               </div>
 
-              {/* SUCCESS MESSAGE */}
-              {successMsg && (
-                <div className="mx-6 mt-4 p-4 bg-[rgba(52,211,153,0.08)] border border-[rgba(52,211,153,0.2)] rounded-xl flex items-center gap-3">
-                  <span className="text-xl">✅</span>
-                  <div>
-                    <div className="font-semibold text-sm text-[var(--success)]">{successMsg}</div>
-                    <div className="text-xs text-[var(--text-muted)] mt-0.5">Acesse o menu <strong>🔐 Aprovações</strong> para gerenciar.</div>
-                  </div>
-                </div>
-              )}
+              {successMsg&&(<div className="mx-6 mt-4 p-4 bg-[rgba(52,211,153,0.08)] border border-[rgba(52,211,153,0.2)] rounded-xl flex items-center gap-3"><span className="text-xl">✅</span><div><div className="font-semibold text-sm text-[var(--success)]">{successMsg}</div><div className="text-xs text-[var(--text-muted)] mt-0.5">Acesse <strong>🔐 Aprovações</strong> para gerenciar.</div></div></div>)}
 
               <div className="p-6">
-                {/* SEÇÃO 1: DADOS DO CLIENTE */}
                 <SectionTitle>👤 Dados do Cliente</SectionTitle>
                 <div className="grid grid-cols-2 gap-x-8 gap-y-4 mb-6 p-4 bg-[var(--bg-elevated)] rounded-xl border border-[var(--border)]">
-                  {editMode ? (<>
-                    <EditField label="Nome Completo" value={ef.nome} onChange={v => setEf('nome', v)} />
-                    <EditField label="CPF" value={ef.cpf} onChange={v => setEf('cpf', v)} />
-                    <EditField label="Endereço" value={ef.endereco} onChange={v => setEf('endereco', v)} />
-                    <EditField label="Telefone" value={ef.telefone} onChange={v => setEf('telefone', v)} />
-                    <EditField label="E-mail" value={ef.email} onChange={v => setEf('email', v)} />
-                  </>) : (<>
-                    <DetailField label="Nome Completo" value={c.nome} />
-                    <DetailField label="CPF" value={c.cpf} mono />
-                    <DetailField label="Endereço" value={c.endereco} />
-                    <DetailField label="Telefone" value={c.telefone} mono />
-                    <DetailField label="E-mail" value={c.email} />
+                  {editMode?(<>
+                    <EditField label="Nome Completo" value={ef.nome} onChange={v=>setEf('nome',v)}/>
+                    <EditField label="CPF" value={ef.cpf} onChange={v=>setEf('cpf',v)}/>
+                    <EditField label="Telefone Principal" value={ef.telefone} onChange={v=>setEf('telefone',v)}/>
+                    <EditField label="Telefone Adicional" value={ef.telefone_adicional} onChange={v=>setEf('telefone_adicional',v)}/>
+                    <EditField label="E-mail" value={ef.email} onChange={v=>setEf('email',v)}/>
+                  </>):(<>
+                    <DetailField label="Nome Completo" value={c.nome}/>
+                    <DetailField label="CPF" value={c.cpf} mono/>
+                    <DetailField label="Telefone Principal" value={formatPhone(c.telefone)} mono/>
+                    <DetailField label="Telefone Adicional" value={c.telefone_adicional?formatPhone(c.telefone_adicional):'—'} mono/>
+                    <DetailField label="E-mail" value={c.email}/>
+                    <DetailField label="Endereço" value={buildEndereco(c)}/>
                   </>)}
                 </div>
 
-                {/* SEÇÃO 2: DADOS DA COTA */}
                 <SectionTitle>📋 Dados da Cota</SectionTitle>
                 <div className="grid grid-cols-3 gap-x-6 gap-y-4 mb-6 p-4 bg-[var(--bg-elevated)] rounded-xl border border-[var(--border)]">
-                  {editMode ? (<>
-                    <EditField label="Administradora" value={ef.administradora_id} onChange={v => setEf('administradora_id', v)} options={[{value:'',label:'Selecione...'}, ...admOptions]} />
-                    <EditField label="Nº do Contrato" value={ef.numero_contrato} onChange={v => setEf('numero_contrato', v)} />
-                    <EditField label="Tipo de Bem" value={ef.tipo_bem} onChange={v => setEf('tipo_bem', v)} options={BENS.map(b=>({value:b,label:BEM_LABELS[b]}))} />
-                    <EditField label="Crédito" value={ef.credito_valor} onChange={v => setEf('credito_valor', v)} type="number" />
-                    <EditField label="Grupo" value={ef.grupo} onChange={v => setEf('grupo', v)} />
-                    <EditField label="Cota" value={ef.cota} onChange={v => setEf('cota', v)} />
-                    <EditField label="2º Vencimento (dia)" value={ef.segundo_vencimento_dia} onChange={v => setEf('segundo_vencimento_dia', v)} type="number" />
-                  </>) : (<>
-                    <DetailField label="Administradora" value={c.administradoras?.nome} />
-                    <DetailField label="Nº do Contrato" value={c.numero_contrato} mono />
-                    <DetailField label="Tipo de Bem" value={BEM_LABELS[c.tipo_bem]||c.tipo_bem} />
-                    <DetailField label="Crédito" value={`R$ ${(c.credito_valor||0).toLocaleString('pt-BR')}`} highlight />
-                    <DetailField label="Grupo" value={c.grupo} />
-                    <DetailField label="Cota" value={c.cota} />
-                    <DetailField label="Parcela Atual" value={`P${c.parcela_atual} de 12`} />
-                    <DetailField label="2º Vencimento" value={c.segundo_vencimento_dia?`Todo dia ${c.segundo_vencimento_dia}`:'—'} />
-                    <DetailField label="Data da Venda" value={c.data_venda?new Date(c.data_venda).toLocaleDateString('pt-BR'):'—'} />
-                    <DetailField label="Origem" value={c.origem_cadastro==='api'?'⚡ API Profinanc':'✏️ Manual'} />
-                    {c.profinanc_id&&<DetailField label="ID Profinanc" value={c.profinanc_id} mono />}
+                  {editMode?(<>
+                    <EditField label="Administradora" value={ef.administradora_id} onChange={v=>setEf('administradora_id',v)} options={[{value:'',label:'Selecione...'},...admOptions]}/>
+                    <EditField label="Nº do Contrato" value={ef.numero_contrato} onChange={v=>setEf('numero_contrato',v)}/>
+                    <EditField label="Tipo de Bem" value={ef.tipo_bem} onChange={v=>setEf('tipo_bem',v)} options={BENS.map(b=>({value:b,label:BEM_LABELS[b]}))}/>
+                    <EditField label="Crédito" value={ef.credito_valor} onChange={v=>setEf('credito_valor',v)} type="number"/>
+                    <EditField label="Grupo" value={ef.grupo} onChange={v=>setEf('grupo',v)}/>
+                    <EditField label="Cota" value={ef.cota} onChange={v=>setEf('cota',v)}/>
+                    <EditField label="Prazo" value={ef.prazo} onChange={v=>setEf('prazo',v)}/>
+                    <EditField label="Vencimento (dia)" value={ef.segundo_vencimento_dia} onChange={v=>setEf('segundo_vencimento_dia',v)} type="number"/>
+                  </>):(<>
+                    <DetailField label="Administradora" value={c.administradoras?.nome}/>
+                    <DetailField label="Nº do Contrato" value={c.numero_contrato} mono/>
+                    <DetailField label="Tipo de Bem" value={BEM_LABELS[c.tipo_bem]||c.tipo_bem}/>
+                    <DetailField label="Crédito" value={`R$ ${(c.credito_valor||0).toLocaleString('pt-BR')}`} highlight/>
+                    <DetailField label="Grupo" value={c.grupo}/>
+                    <DetailField label="Cota" value={c.cota}/>
+                    <DetailField label="Prazo" value={c.prazo}/>
+                    <DetailField label="Vencimento" value={c.segundo_vencimento_dia?`Todo dia ${c.segundo_vencimento_dia}`:'—'}/>
+                    <DetailField label="Parcela Atual" value={`P${c.parcela_atual} de 12`}/>
+                    <DetailField label="Data da Venda" value={c.data_venda?new Date(c.data_venda).toLocaleDateString('pt-BR'):'—'}/>
+                    <DetailField label="Origem" value={c.origem_cadastro==='api'?'⚡ API Profinanc':'✏️ Manual'}/>
                   </>)}
                 </div>
 
                 {/* DOCUMENTAÇÃO */}
                 <SectionTitle>📎 Documentação do Vendedor</SectionTitle>
-                <div className="flex gap-3 mb-6">
-                  {editMode ? (<>
-                    {[{l:'🪪 RG',k:'doc_rg'},{l:'🏠 Endereço',k:'doc_comprovante_endereco'},{l:'💳 Pagamento',k:'doc_comprovante_pagamento'}].map(d=>(
-                      <label key={d.k} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer border ${ef[d.k]?'bg-[rgba(52,211,153,0.08)] text-[var(--success)] border-[rgba(52,211,153,0.2)]':'bg-[rgba(248,113,113,0.08)] text-[var(--danger)] border-[rgba(248,113,113,0.2)]'}`}>
-                        <input type="checkbox" checked={!!ef[d.k]} onChange={e=>setEf(d.k,e.target.checked)} className="w-3.5 h-3.5 accent-[var(--success)]"/>
-                        {d.l}
-                      </label>
-                    ))}
-                  </>) : (<>
-                    {[{l:'🪪 RG',ok:c.doc_rg},{l:'🏠 Comprov. Endereço',ok:c.doc_comprovante_endereco},{l:'💳 Comprov. Pagamento',ok:c.doc_comprovante_pagamento}].map((d,i)=>(
-                      <span key={i} className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold ${d.ok?'bg-[rgba(52,211,153,0.08)] text-[var(--success)] border border-[rgba(52,211,153,0.2)]':'bg-[rgba(248,113,113,0.08)] text-[var(--danger)] border border-[rgba(248,113,113,0.2)]'}`}>
-                        {d.ok?'✓':'✕'} {d.l}
-                      </span>
-                    ))}
-                  </>)}
+                <div className="grid grid-cols-3 gap-3 mb-6">
+                  {docs.map(d=>{
+                    const ok = c[d.dk];
+                    const url = c[d.uk];
+                    return (
+                      <div key={d.dk} className={`flex flex-col items-center gap-2 p-4 rounded-lg border ${ok?'bg-[rgba(52,211,153,0.06)] border-[rgba(52,211,153,0.2)]':'bg-[rgba(248,113,113,0.06)] border-[rgba(248,113,113,0.2)]'}`}>
+                        <span className="text-sm font-semibold">{d.label}</span>
+                        {ok && url ? (
+                          <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-[var(--accent)] hover:underline">📄 Ver Documento</a>
+                        ) : ok && !url ? (
+                          <span className="text-xs text-[var(--success)] font-semibold">✓ Recebido</span>
+                        ) : (
+                          <button onClick={()=>{setUploadingDoc({docKey:d.dk,urlKey:d.uk,context:'detail'});fileInputRef.current?.click();}} className="text-xs font-bold text-[var(--warning)] hover:text-[var(--orange)] transition-colors">📤 Anexar Documento</button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* PARCELAS */}
-                {!editMode && parcelas.length > 0 && (<>
+                {!editMode&&parcelas.length>0&&(<>
                   <SectionTitle>💳 Parcelas (1 a 12)</SectionTitle>
                   <div className="grid grid-cols-4 gap-2">
                     {parcelas.map(p=>(
@@ -362,16 +410,13 @@ export default function ClientesPage() {
                 </>)}
               </div>
 
-              {/* FOOTER */}
               <div className="flex justify-between gap-3 px-6 py-4 border-t border-[var(--border)]">
                 <div>
-                  {!editMode && <button onClick={startEdit} className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-elevated)] text-[var(--warning)] border border-[rgba(251,191,36,0.3)] rounded-lg text-sm font-semibold hover:bg-[rgba(251,191,36,0.08)] transition-all">✏️ Editar Dados</button>}
-                  {editMode && <button onClick={() => setEditMode(false)} className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-elevated)] text-[var(--text-secondary)] border border-[var(--border)] rounded-lg text-sm font-semibold">Cancelar Edição</button>}
+                  {!editMode&&<button onClick={startEdit} className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-elevated)] text-[var(--warning)] border border-[rgba(251,191,36,0.3)] rounded-lg text-sm font-semibold hover:bg-[rgba(251,191,36,0.08)] transition-all">✏️ Editar Dados</button>}
+                  {editMode&&<button onClick={()=>setEditMode(false)} className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-elevated)] text-[var(--text-secondary)] border border-[var(--border)] rounded-lg text-sm font-semibold">Cancelar Edição</button>}
                 </div>
                 <div className="flex gap-3">
-                  {editMode ? (
-                    <button onClick={handleSolicitarEdicao} className="flex items-center gap-2 px-4 py-2 bg-[var(--warning)] text-black rounded-lg text-sm font-bold hover:brightness-110 transition-all">🔐 Solicitar Aprovação da Edição</button>
-                  ) : (<>
+                  {editMode?(<button onClick={handleSolicitarEdicao} className="flex items-center gap-2 px-4 py-2 bg-[var(--warning)] text-black rounded-lg text-sm font-bold hover:brightness-110 transition-all">🔐 Solicitar Aprovação da Edição</button>):(<>
                     <button className="flex items-center gap-2 px-4 py-2 bg-[rgba(37,211,102,0.12)] text-[#25D366] rounded-lg text-sm font-semibold">💬 WhatsApp</button>
                     <button className="flex items-center gap-2 px-4 py-2 bg-[rgba(79,124,255,0.12)] text-[var(--accent)] rounded-lg text-sm font-semibold">📞 Ligar</button>
                     <button onClick={()=>{setSelectedClient(null);setEditMode(false);}} className="px-4 py-2 bg-[var(--bg-elevated)] text-[var(--text-secondary)] border border-[var(--border)] rounded-lg text-sm font-semibold">Fechar</button>
