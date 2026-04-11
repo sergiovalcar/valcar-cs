@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import { CotasPanel } from '@/components/CotasPanel';
 
 const STATUS_MAP = {
   novo: { label: 'Passagem de Bastão', color: '#2E7D32', bg: 'rgba(46,125,50,0.12)' },
@@ -86,7 +87,6 @@ export default function ClientesPage() {
     setLoading(false);
   }
 
-  // Upload de documento
   async function uploadDoc(file, clienteId, docType) {
     const ext = file.name.split('.').pop();
     const path = `${clienteId || 'novo'}/${docType}_${Date.now()}.${ext}`;
@@ -96,7 +96,6 @@ export default function ClientesPage() {
     return urlData.publicUrl;
   }
 
-  // Quando marca checkbox de doc no formulário de cadastro
   function handleDocCheck(docKey, urlKey) {
     if (!form[docKey]) {
       setUploadingDoc({ docKey, urlKey, context: 'form' });
@@ -375,6 +374,13 @@ export default function ClientesPage() {
                     <DetailField label="Origem" value={c.origem_cadastro==='api'?'⚡ API Profinanc':'✏️ Manual'}/>
                   </>)}
                 </div>
+
+                {/* ── GMAC: Painel de cotas ── */}
+                {!editMode && (
+                  <div className="mb-6">
+                    <CotasPanel clienteId={c.id} />
+                  </div>
+                )}
 
                 {/* DOCUMENTAÇÃO */}
                 <SectionTitle>📎 Documentação do Vendedor</SectionTitle>
