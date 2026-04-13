@@ -253,6 +253,15 @@ export function CotasPanel({ clienteId }) {
       {c && (
         <div className="bg-white border border-zinc-200 border-t-0 rounded-b-xl p-5 space-y-6">
 
+          {/* ── Banner de erro GMAC ── */}
+          {c.mensagem_erro && (
+            <div className="bg-amber-50 border border-amber-300 rounded-lg px-4 py-3 text-center">
+              <p className="text-amber-800 font-bold text-sm tracking-wide">
+                ★★★★★ {c.mensagem_erro} ★★★★★
+              </p>
+            </div>
+          )}
+
           {/* Badges de situação */}
           <div className="flex flex-wrap gap-2">
             <BadgeSituacao valor={c.sit_cobranca} />
