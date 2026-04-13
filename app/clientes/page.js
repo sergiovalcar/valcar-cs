@@ -66,6 +66,7 @@ export default function ClientesPage() {
   const [editForm, setEditForm] = useState({});
   const [successMsg, setSuccessMsg] = useState('');
   const [uploadingDoc, setUploadingDoc] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const fileInputRef = useRef(null);
   const emptyForm = {
     nome:'', cpf:'', telefone:'', telefone_adicional:'', email:'',
@@ -149,7 +150,22 @@ export default function ClientesPage() {
     fetchData();
   }
 
-  function startEdit() {
+  async function handleDeleteCliente() {
+    const c = selectedClient;
+    if (!c) return;
+    // Deleta dados relacionados no Supabase
+    await supabase.from('dados_administradora').delete().eq('cliente_id', c.id);
+    await supabase.from('parcelas_pendentes').delete().eq('cliente_id', c.id);
+    await supabase.from('parcelas').delete().eq('cliente_id', c.id);
+    const { error } = await supabase.from('clientes').delete().eq('id', c.id);
+    if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    setSelectedClient(null);
+    setConfirmDelete(false);
+    setEditMode(false);
+    fetchData();
+  }
+
+
     const c = selectedClient;
     setEditForm({
       nome:c.nome, cpf:c.cpf, telefone:c.telefone, telefone_adicional:c.telefone_adicional, email:c.email,
@@ -286,15 +302,26 @@ export default function ClientesPage() {
               </div>
 
               <div className="flex justify-between gap-3 px-6 py-4 border-t border-[var(--border)]">
-                <div>
+                <div className="flex gap-2">
                   {!editMode&&<button onClick={startEdit} className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-elevated)] text-[var(--warning)] border border-[rgba(251,191,36,0.3)] rounded-lg text-sm font-semibold hover:bg-[rgba(251,191,36,0.08)] transition-all">✏️ Editar Dados</button>}
                   {editMode&&<button onClick={()=>setEditMode(false)} className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-elevated)] text-[var(--text-secondary)] border border-[var(--border)] rounded-lg text-sm font-semibold">Cancelar Edição</button>}
+                  {!editMode&&(
+                    confirmDelete ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-red-500 font-semibold">Confirmar exclusão?</span>
+                        <button onClick={handleDeleteCliente} className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700 transition-all">Sim, excluir</button>
+                        <button onClick={()=>setConfirmDelete(false)} className="px-3 py-1.5 bg-[var(--bg-elevated)] text-[var(--text-secondary)] border border-[var(--border)] rounded-lg text-sm font-semibold">Cancelar</button>
+                      </div>
+                    ) : (
+                      <button onClick={()=>setConfirmDelete(true)} className="flex items-center gap-2 px-4 py-2 bg-[rgba(220,38,38,0.08)] text-red-500 border border-[rgba(220,38,38,0.2)] rounded-lg text-sm font-semibold hover:bg-[rgba(220,38,38,0.15)] transition-all">🗑️ Excluir Cliente</button>
+                    )
+                  )}
                 </div>
                 <div className="flex gap-3">
                   {editMode?(<button onClick={handleSolicitarEdicao} className="flex items-center gap-2 px-4 py-2 bg-[var(--warning)] text-black rounded-lg text-sm font-bold hover:brightness-110 transition-all">🔐 Solicitar Aprovação da Edição</button>):(<>
                     <button className="flex items-center gap-2 px-4 py-2 bg-[rgba(37,211,102,0.12)] text-[#25D366] rounded-lg text-sm font-semibold">💬 WhatsApp</button>
                     <button className="flex items-center gap-2 px-4 py-2 bg-[rgba(79,124,255,0.12)] text-[var(--accent)] rounded-lg text-sm font-semibold">📞 Ligar</button>
-                    <button onClick={()=>{setSelectedClient(null);setEditMode(false);}} className="px-4 py-2 bg-[var(--bg-elevated)] text-[var(--text-secondary)] border border-[var(--border)] rounded-lg text-sm font-semibold">Fechar</button>
+                    <button onClick={()=>{setSelectedClient(null);setEditMode(false);setConfirmDelete(false);}} className="px-4 py-2 bg-[var(--bg-elevated)] text-[var(--text-secondary)] border border-[var(--border)] rounded-lg text-sm font-semibold">Fechar</button>
                   </>)}
                 </div>
               </div>
