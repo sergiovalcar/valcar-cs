@@ -264,7 +264,7 @@ export function CotasPanel({ clienteId }) {
             <Metrica label="Contrato" valor={c.contrato || "—"} />
             <Metrica label="Taxa ADM" valor={c.taxa_adm != null ? `${Number(c.taxa_adm).toFixed(4)}%` : "—"} />
             <Metrica label="Crédito Atual" valor={moeda(c.credito_atualizado)} destaque />
-            <Metrica label="Valor em Atraso" valor={moeda(c.atrasos_valor)} alerta={c.atrasos_valor > 0} />
+
             <Metrica label="Data da Venda" valor={data(c.data_venda)} />
             <Metrica label="Valor da Parcela" valor={moeda(c.valor_parcela)} />
             <Metrica label="Valores Pagos" valor={`${moeda(c.valores_pagos)} (${pct(c.valores_pagos_pct)})`} />
