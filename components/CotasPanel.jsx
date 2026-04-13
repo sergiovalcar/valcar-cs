@@ -24,8 +24,10 @@ function pct(v) {
 function data(d) {
   if (!d) return "—";
   if (/\d{2}\/\d{2}\/\d{4}/.test(d)) return d;
-  const dt = new Date(d);
-  return isNaN(dt.getTime()) ? d : dt.toLocaleDateString("pt-BR");
+  // Parse ISO sem conversão de timezone (evita shift de -1 dia)
+  const m = d.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+  return d;
 }
 
 function BadgeSituacao({ valor }) {
@@ -87,6 +89,13 @@ function Histograma({ raw }) {
 
 // ── Grade de Parcelas 1-12 ───────────────────────────────────
 
+function isoToBR(d) {
+  if (!d) return null;
+  if (/\d{2}\/\d{2}\/\d{4}/.test(d)) return d;
+  const m = d.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : d;
+}
+
 function GridParcelas({ parcelas }) {
   // Monta mapa por número de parcela
   const mapa = {};
@@ -121,10 +130,10 @@ function GridParcelas({ parcelas }) {
               {label}
             </div>
             {p?.vencimento && (
-              <div className="text-[9px] text-zinc-400 mt-0.5">{p.vencimento}</div>
+              <div className="text-[9px] text-zinc-400 mt-0.5">{isoToBR(p.vencimento)}</div>
             )}
             {p?.data_pagamento && status === "pago" && (
-              <div className="text-[9px] text-emerald-500 mt-0.5">Pago {p.data_pagamento}</div>
+              <div className="text-[9px] text-emerald-500 mt-0.5">Pago {isoToBR(p.data_pagamento)}</div>
             )}
             {p?.valor != null && (
               <div className="text-[10px] font-semibold text-zinc-600 mt-0.5">
@@ -250,48 +259,20 @@ export function CotasPanel({ clienteId }) {
             <BadgeSituacao valor={c.situacao} />
           </div>
 
-          {/* ── 4 campos em destaque ── */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-2.5">
-              <p className="text-[10px] uppercase tracking-wide text-zinc-400 mb-0.5">Contrato</p>
-              <p className="text-sm font-bold text-zinc-800 font-mono">{c.contrato || "—"}</p>
-            </div>
-            <div className="bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-2.5">
-              <p className="text-[10px] uppercase tracking-wide text-zinc-400 mb-0.5">Taxa ADM</p>
-              <p className="text-sm font-bold text-zinc-800">{c.taxa_adm != null ? `${Number(c.taxa_adm).toFixed(4)}%` : "—"}</p>
-            </div>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5">
-              <p className="text-[10px] uppercase tracking-wide text-blue-400 mb-0.5">Crédito Atual</p>
-              <p className="text-sm font-bold text-blue-700">{moeda(c.credito_atualizado)}</p>
-            </div>
-            <div className={`rounded-lg px-3 py-2.5 border ${c.atrasos_valor > 0 ? 'bg-red-50 border-red-200' : 'bg-zinc-50 border-zinc-200'}`}>
-              <p className={`text-[10px] uppercase tracking-wide mb-0.5 ${c.atrasos_valor > 0 ? 'text-red-400' : 'text-zinc-400'}`}>Valor em Atraso</p>
-              <p className={`text-sm font-bold ${c.atrasos_valor > 0 ? 'text-red-600' : 'text-zinc-500'}`}>{moeda(c.atrasos_valor)}</p>
-            </div>
-          </div>
-
-          {/* Dados principais */}
+          {/* ── Métricas principais ── */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            <Metrica label="Valor do Bem" valor={moeda(c.credito_atualizado)} destaque />
-            <Metrica label="Prazo do Plano" valor={c.prazo_plano ? `${c.prazo_plano} meses` : "—"} />
+            <Metrica label="Contrato" valor={c.contrato || "—"} />
+            <Metrica label="Taxa ADM" valor={c.taxa_adm != null ? `${Number(c.taxa_adm).toFixed(4)}%` : "—"} />
+            <Metrica label="Crédito Atual" valor={moeda(c.credito_atualizado)} destaque />
+            <Metrica label="Valor em Atraso" valor={moeda(c.atrasos_valor)} alerta={c.atrasos_valor > 0} />
             <Metrica label="Data da Venda" valor={data(c.data_venda)} />
             <Metrica label="Valor da Parcela" valor={moeda(c.valor_parcela)} />
-            <Metrica
-              label="Valores Pagos"
-              valor={`${moeda(c.valores_pagos)} (${pct(c.valores_pagos_pct)})`}
-            />
-            <Metrica
-              label="Saldo Devedor"
-              valor={`${moeda(c.saldo_devedor)}`}
-            />
-            <Metrica
-              label="Atrasos"
-              valor={c.atrasos_qtd ? `${c.atrasos_qtd}x — ${moeda(c.atrasos_valor)}` : "Nenhum"}
-              alerta={c.atrasos_qtd > 0}
-            />
+            <Metrica label="Valores Pagos" valor={`${moeda(c.valores_pagos)} (${pct(c.valores_pagos_pct)})`} />
+            <Metrica label="Saldo Devedor" valor={moeda(c.saldo_devedor)} />
             <Metrica label="Assembleia" valor={c.assembleia_atual ?? "—"} />
-            <Metrica label="Vencimento" valor={data(c.vencimento_data)} />
           </div>
+
+
 
           {/* Contemplação / Entrega */}
           <div className="grid grid-cols-2 gap-3">
