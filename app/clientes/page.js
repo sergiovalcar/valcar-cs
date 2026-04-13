@@ -283,23 +283,6 @@ export default function ClientesPage() {
                   })}
                 </div>
 
-                {/* PARCELAS */}
-                {!editMode&&parcelas.length>0&&(<>
-                  <SectionTitle>💳 Parcelas (1 a 12)</SectionTitle>
-                  <div className="grid grid-cols-4 gap-2">
-                    {parcelas.map(p=>(
-                      <div key={p.id} className={`p-3 rounded-lg border text-center relative overflow-hidden ${p.numero===c.parcela_atual?'border-[var(--accent)] shadow-[0_0_0_2px_rgba(79,124,255,0.12)]':'border-[var(--border)]'} bg-[var(--bg-elevated)]`}>
-                        <div className={`absolute top-0 left-0 right-0 h-[3px] ${p.status==='em_dia'?'bg-[var(--success)]':p.status==='em_atraso'?'bg-[var(--danger)]':'bg-[var(--border-light)]'}`}/>
-                        {p.numero===c.parcela_atual&&<div className="absolute top-1.5 right-1.5 text-[8px] font-extrabold text-[var(--accent)] bg-[rgba(79,124,255,0.12)] px-1.5 py-0.5 rounded uppercase">Atual</div>}
-                        <div className={`text-lg font-extrabold ${p.status==='em_dia'?'text-[var(--success)]':p.status==='em_atraso'?'text-[var(--danger)]':'text-[var(--text-muted)]'}`}>P{p.numero}</div>
-                        <div className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded inline-block mt-1 ${p.status==='em_dia'?'bg-[rgba(52,211,153,0.12)] text-[var(--success)]':p.status==='em_atraso'?'bg-[rgba(248,113,113,0.12)] text-[var(--danger)]':'bg-[var(--bg-card)] text-[var(--text-muted)]'}`}>
-                          {p.status==='em_dia'?'✓ Em Dia':p.status==='em_atraso'?'⚠ Atraso':'Em Aberto'}
-                        </div>
-                        {p.data_vencimento&&<div className="text-[10px] text-[var(--text-muted)] mt-1">{new Date(p.data_vencimento).toLocaleDateString('pt-BR')}</div>}
-                      </div>
-                    ))}
-                  </div>
-                </>)}
               </div>
 
               <div className="flex justify-between gap-3 px-6 py-4 border-t border-[var(--border)]">
