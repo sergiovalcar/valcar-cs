@@ -269,7 +269,7 @@ export function CotasPanel({ clienteId }) {
             <Metrica label="Valor da Parcela" valor={moeda(c.valor_parcela)} />
             <Metrica label="Valores Pagos" valor={`${moeda(c.valores_pagos)} (${pct(c.valores_pagos_pct)})`} />
             <Metrica label="Saldo Devedor" valor={moeda(c.saldo_devedor)} />
-            <Metrica label="Assembleia" valor={c.assembleia_atual ?? "—"} />
+            <Metrica label="Prazo da Cota" valor={c.prazo_cota ? `${c.prazo_cota} meses` : "—"} />
           </div>
 
 
