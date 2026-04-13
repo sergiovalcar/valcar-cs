@@ -248,7 +248,26 @@ export function CotasPanel({ clienteId }) {
           <div className="flex flex-wrap gap-2">
             <BadgeSituacao valor={c.sit_cobranca} />
             <BadgeSituacao valor={c.situacao} />
-            {c.contrato && <span className="text-xs text-zinc-500">Contrato {c.contrato}</span>}
+          </div>
+
+          {/* ── 4 campos em destaque ── */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-2.5">
+              <p className="text-[10px] uppercase tracking-wide text-zinc-400 mb-0.5">Contrato</p>
+              <p className="text-sm font-bold text-zinc-800 font-mono">{c.contrato || "—"}</p>
+            </div>
+            <div className="bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-2.5">
+              <p className="text-[10px] uppercase tracking-wide text-zinc-400 mb-0.5">Taxa ADM</p>
+              <p className="text-sm font-bold text-zinc-800">{c.taxa_adm != null ? `${Number(c.taxa_adm).toFixed(4)}%` : "—"}</p>
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5">
+              <p className="text-[10px] uppercase tracking-wide text-blue-400 mb-0.5">Crédito Atual</p>
+              <p className="text-sm font-bold text-blue-700">{moeda(c.credito_atualizado)}</p>
+            </div>
+            <div className={`rounded-lg px-3 py-2.5 border ${c.atrasos_valor > 0 ? 'bg-red-50 border-red-200' : 'bg-zinc-50 border-zinc-200'}`}>
+              <p className={`text-[10px] uppercase tracking-wide mb-0.5 ${c.atrasos_valor > 0 ? 'text-red-400' : 'text-zinc-400'}`}>Valor em Atraso</p>
+              <p className={`text-sm font-bold ${c.atrasos_valor > 0 ? 'text-red-600' : 'text-zinc-500'}`}>{moeda(c.atrasos_valor)}</p>
+            </div>
           </div>
 
           {/* Dados principais */}
