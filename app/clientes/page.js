@@ -270,8 +270,64 @@ export default function ClientesPage() {
                 <InputField label="Cidade / Estado" value={form.cidade_estado} onChange={e=>setForm({...form,cidade_estado:e.target.value})} placeholder="Manaus/AM" className="col-span-2" />
                 <InputField label="CEP" value={form.cep} onChange={e=>setForm({...form,cep:formatCEP(e.target.value)})} placeholder="00000-000" className="col-span-2" />
               </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={()=>setShowForm(false)} className="px-4 py-2 bg-[var(--bg-elevated)] text-[var(--text-secondary)] border border-[var(--border)] rounded-lg text-sm font-semibold">Cancelar</button>
+                <button type="submit" className="px-5 py-2 bg-[var(--accent)] text-white rounded-lg text-sm font-bold hover:bg-[var(--accent-light)] transition-all">Cadastrar Cliente</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
-              {/* ── GMAC: Painel de cotas ── */}
+      {/* ============ MODAL: Detalhe do Cliente ============ */}
+      {selectedClient && (()=>{
+        const c = selectedClient;
+        const docs = [
+          {label:'RG / CNH', dk:'doc_rg', uk:'doc_rg_url'},
+          {label:'Comprov. Endereço', dk:'doc_comprovante_endereco', uk:'doc_comprovante_endereco_url'},
+          {label:'Comprov. Pagamento', dk:'doc_comprovante_pagamento', uk:'doc_comprovante_pagamento_url'},
+        ];
+        return (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[200] flex items-center justify-center" onClick={()=>{setSelectedClient(null);setEditMode(false);setConfirmDelete(false);}}>
+            <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl w-[780px] max-h-[90vh] overflow-y-auto" onClick={e=>e.stopPropagation()}>
+              <div className="flex justify-between items-center px-6 py-5 border-b border-[var(--border)]">
+                <div>
+                  <h2 className="font-display text-xl font-bold">{c.nome}</h2>
+                  <p className="text-xs text-[var(--text-muted)] mt-0.5">{c.cpf} · {formatPhone(c.telefone)}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  {successMsg&&<span className="text-xs text-[var(--success)] font-semibold bg-[rgba(52,211,153,0.1)] px-3 py-1.5 rounded-lg">{successMsg}</span>}
+                  <button onClick={()=>{setSelectedClient(null);setEditMode(false);setConfirmDelete(false);}} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-xl">✕</button>
+                </div>
+              </div>
+              <div className="p-6">
+                <SectionTitle>👤 Dados do Cliente</SectionTitle>
+                {editMode ? (
+                  <div className="grid grid-cols-2 gap-3 mb-6">
+                    <EditField label="Nome" value={editForm.nome} onChange={v=>setEditForm(f=>({...f,nome:v}))} />
+                    <EditField label="CPF" value={editForm.cpf} onChange={v=>setEditForm(f=>({...f,cpf:v}))} />
+                    <EditField label="Telefone" value={editForm.telefone} onChange={v=>setEditForm(f=>({...f,telefone:v}))} />
+                    <EditField label="Telefone Adicional" value={editForm.telefone_adicional} onChange={v=>setEditForm(f=>({...f,telefone_adicional:v}))} />
+                    <EditField label="Email" value={editForm.email} onChange={v=>setEditForm(f=>({...f,email:v}))} />
+                    <EditField label="Status" value={editForm.status||c.status} onChange={v=>setEditForm(f=>({...f,status:v}))} options={Object.entries(STATUS_MAP).map(([k,v])=>({value:k,label:v.label}))} />
+                    <EditField label="Logradouro" value={editForm.logradouro} onChange={v=>setEditForm(f=>({...f,logradouro:v}))} />
+                    <EditField label="Número" value={editForm.numero_endereco} onChange={v=>setEditForm(f=>({...f,numero_endereco:v}))} />
+                    <EditField label="Bairro" value={editForm.bairro} onChange={v=>setEditForm(f=>({...f,bairro:v}))} />
+                    <EditField label="Cidade / Estado" value={editForm.cidade_estado} onChange={v=>setEditForm(f=>({...f,cidade_estado:v}))} />
+                    <EditField label="CEP" value={editForm.cep} onChange={v=>setEditForm(f=>({...f,cep:v}))} />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4 mb-6">
+                    <DetailField label="Nome" value={c.nome} />
+                    <DetailField label="CPF" value={c.cpf} mono />
+                    <DetailField label="Telefone" value={formatPhone(c.telefone)} />
+                    <DetailField label="Telefone Adicional" value={formatPhone(c.telefone_adicional)} />
+                    <DetailField label="Email" value={c.email} />
+                    <DetailField label="Endereço" value={buildEndereco(c)} />
+                  </div>
+                )}
+
+                {/* ── GMAC: Painel de cotas ── */}
                 {!editMode && (
                   <div className="mb-6">
                     <CotasPanel clienteId={c.id} />
@@ -298,7 +354,6 @@ export default function ClientesPage() {
                     );
                   })}
                 </div>
-
               </div>
 
               <div className="flex justify-between gap-3 px-6 py-4 border-t border-[var(--border)]">
