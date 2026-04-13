@@ -166,6 +166,7 @@ export default function ClientesPage() {
   }
 
 
+  function startEdit() {
     const c = selectedClient;
     setEditForm({
       nome:c.nome, cpf:c.cpf, telefone:c.telefone, telefone_adicional:c.telefone_adicional, email:c.email,
